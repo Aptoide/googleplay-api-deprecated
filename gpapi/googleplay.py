@@ -48,7 +48,7 @@ class GooglePlayAPI(object):
     def __init__(self, debug=False, device_codename='bacon',
                  locale=None, timezone=None,
                  sim_operator=None, cell_operator=None,
-                 proxies=None):
+                 proxies_config=None):
         self.authSubToken = None
         self.gsfId = None
         self.debug = debug
@@ -61,7 +61,7 @@ class GooglePlayAPI(object):
         if cell_operator is not None:
             self.deviceBuilder.device['celloperator'] = cell_operator
         # save last response text for error logging
-        self.proxies = proxies
+        self.proxies = proxies_config
 
     def encrypt_password(self, login, passwd):
         """Encrypt the password using the google publickey, using
