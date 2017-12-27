@@ -541,6 +541,16 @@ class GooglePlayAPI(object):
                                 verify=ssl_verify,
                                 timeout=60,
                                 proxies=self.proxies)
+        if int(response.status_code) != 200:
+            logging.info("Renewing Tor IP...")
+            os.system("(echo authenticate '""'; echo signal newnym; echo quit) | nc 10.100.1.121 9051")
+            response = requests.get(url,
+                                    headers=headers,
+                                    params=params,
+                                    verify=ssl_verify,
+                                    timeout=60,
+                                    proxies=self.proxies)
+            
         resObj = googleplay_pb2.ResponseWrapper.FromString(response.content)
         if resObj.commands.displayErrorMessage != "":
             raise RequestError(resObj.commands.displayErrorMessage)
@@ -609,6 +619,15 @@ class GooglePlayAPI(object):
                                  verify=ssl_verify,
                                  timeout=60,
                                  proxies=self.proxies)
+        if (response.status_code) != 200:
+            logging.info("Renewing Tor IP...")
+            os.system("(echo authenticate '""'; echo signal newnym; echo quit) | nc 10.100.1.121 9051")
+            response = requests.post(url,
+                                     headers=headers,
+                                     params=params,
+                                     verify=ssl_verify,
+                                     timeout=60,
+                                     proxies=self.proxies)
 
         resObj = googleplay_pb2.ResponseWrapper.FromString(response.content)
         if resObj.commands.displayErrorMessage != "":
