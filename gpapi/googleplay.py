@@ -12,6 +12,8 @@ from base64 import b64decode, urlsafe_b64encode
 from itertools import chain
 
 from . import googleplay_pb2, config, utils
+import os
+import logging
 
 ssl_verify = True
 
@@ -281,7 +283,7 @@ class GooglePlayAPI(object):
         if message.commands.displayErrorMessage != "":
             raise RequestError(message.commands.displayErrorMessage)
 
-        return message
+        return message, response.status_code
 
     def search(self, query, nb_result, offset=None):
         """ Search the play store for an app.
@@ -301,7 +303,11 @@ class GooglePlayAPI(object):
             nextPath += "&o=%d" % int(offset)
         while remaining > 0 and nextPath is not None:
             currentPath = nextPath
-            data = self.executeRequestApi2(currentPath)
+            data, status_code = self.executeRequestApi2(currentPath)
+            if int(status_code) != 200:
+                logging.info("Renewing Tor IP...")
+                os.system("(echo authenticate '""'; echo signal newnym; echo quit) | nc 10.100.1.121 9051")
+                data, status_code = self.executeRequestApi2(currentPath)
             if len(data.preFetch) > 0:
                 response = data.preFetch[0].response
             else:
@@ -339,7 +345,7 @@ class GooglePlayAPI(object):
 
         packageName is the app unique ID (usually starting with 'com.')."""
         path = "details?doc=%s" % requests.utils.quote(packageName)
-        data = self.executeRequestApi2(path)
+        data, _ = self.executeRequestApi2(path)
         return utils.fromDocToDictionary(data.payload.detailsResponse.docV2)
 
     def bulkDetails(self, packageNames):
@@ -360,9 +366,9 @@ class GooglePlayAPI(object):
         req = googleplay_pb2.BulkDetailsRequest()
         req.docid.extend(packageNames)
         data = req.SerializeToString()
-        message = self.executeRequestApi2(path,
-                                          data.decode("utf-8"),
-                                          "application/x-protobuf")
+        message, _ = self.executeRequestApi2(path,
+                                             data.decode("utf-8"),
+                                             "application/x-protobuf")
         response = message.payload.bulkDetailsResponse
         return [None if not entry.HasField('doc') else
                 utils.fromDocToDictionary(entry.doc)
@@ -377,7 +383,7 @@ class GooglePlayAPI(object):
             path += "&cat=%s" % requests.utils.quote(cat)
         if subCat is not None:
             path += "&ctr=%s" % requests.utils.quote(subCat)
-        data = self.executeRequestApi2(path)
+        data, _ = self.executeRequestApi2(path)
         output = []
 
         if cat is None and subCat is None:
@@ -414,7 +420,7 @@ class GooglePlayAPI(object):
             path += "&n=%s" % requests.utils.quote(nb_results)
         if offset is not None:
             path += "&o=%s" % requests.utils.quote(offset)
-        data = self.executeRequestApi2(path)
+        data, _ = self.executeRequestApi2(path)
         if ctr is None:
             # list subcategories
             clusters = chain.from_iterable([pf.response.payload.listResponse.cluster
@@ -451,7 +457,7 @@ class GooglePlayAPI(object):
             path += "&o=%d" % int(offset)
         if(filterByDevice):
             path += "&dfil=1"
-        data = self.executeRequestApi2(path)
+        data, _ = self.executeRequestApi2(path)
         output = []
         for rev in data.payload.reviewResponse.getResponse.review:
             author = {'personIdString': rev.author2.personIdString,
