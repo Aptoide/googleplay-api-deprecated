@@ -12,4 +12,6 @@ setup(name='gpapi',
       install_requires=['pycryptodome',
                         'protobuf',
                         'clint',
-                        'requests'])
+                        'requests',
+                        'stem',])
+

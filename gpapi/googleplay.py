@@ -12,6 +12,8 @@ from base64 import b64decode, urlsafe_b64encode
 from itertools import chain
 
 from . import googleplay_pb2, config, utils
+from stem import Signal
+from stem.control import Controller
 import os
 import logging
 
@@ -50,7 +52,10 @@ class GooglePlayAPI(object):
     def __init__(self, debug=False, device_codename='bacon',
                  locale=None, timezone=None,
                  sim_operator=None, cell_operator=None,
-                 proxies_config=None):
+                 proxies_config=None,
+                 tor_control_port=9051,
+                 tor_control_password=''):
+
         self.authSubToken = None
         self.gsfId = None
         self.debug = debug
@@ -64,6 +69,8 @@ class GooglePlayAPI(object):
             self.deviceBuilder.device['celloperator'] = cell_operator
         # save last response text for error logging
         self.proxies = proxies_config
+        self.tor_control_port = tor_control_port
+        self.tor_control_password = tor_control_password
 
     def encrypt_password(self, login, passwd):
         """Encrypt the password using the google publickey, using
@@ -287,7 +294,11 @@ class GooglePlayAPI(object):
 
     def renew_tor_ip(self):
         logging.info("Renewing Tor IP...")
-        os.system("(echo authenticate '""'; echo signal newnym; echo quit) | nc 10.100.1.121 9051")
+
+        with Controller.from_port(port=self.tor_control_port) as controller:
+            controller.authenticate(password=self.tor_control_password)
+            controller.signal(Signal.NEWNYM)
+
 
     def search(self, query, nb_result, offset=None):
         """ Search the play store for an app.
