@@ -285,6 +285,10 @@ class GooglePlayAPI(object):
 
         return message, response.status_code
 
+    def renew_tor_ip(self):
+        logging.info("Renewing Tor IP...")
+        os.system("(echo authenticate '""'; echo signal newnym; echo quit) | nc 10.100.1.121 9051")
+
     def search(self, query, nb_result, offset=None):
         """ Search the play store for an app.
 
@@ -305,8 +309,7 @@ class GooglePlayAPI(object):
             currentPath = nextPath
             data, status_code = self.executeRequestApi2(currentPath)
             if int(status_code) != 200:
-                logging.info("Renewing Tor IP...")
-                os.system("(echo authenticate '""'; echo signal newnym; echo quit) | nc 10.100.1.121 9051")
+                self.renew_tor_ip()
                 data, status_code = self.executeRequestApi2(currentPath)
             if len(data.preFetch) > 0:
                 response = data.preFetch[0].response
@@ -620,8 +623,7 @@ class GooglePlayAPI(object):
                                  timeout=60,
                                  proxies=self.proxies)
         if (response.status_code) != 200:
-            logging.info("Renewing Tor IP...")
-            os.system("(echo authenticate '""'; echo signal newnym; echo quit) | nc 10.100.1.121 9051")
+            self.renew_tor_ip()
             response = requests.post(url,
                                      headers=headers,
                                      params=params,
