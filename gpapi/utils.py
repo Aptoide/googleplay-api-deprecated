@@ -58,7 +58,9 @@ def fromDocToDictionary(app):
         "category": {"appType": app.relatedLinks.categoryInfo.appType,
                      "appCategory": app.relatedLinks.categoryInfo.appCategory},
         "detailsUrl": app.detailsUrl,
-        "recentChangesHtml": app.details.appDetails.recentChangesHtml
+        "recentChangesHtml": app.details.appDetails.recentChangesHtml,
+        "permissions": [permission
+                        for permission in app.details.appDetails.permission],
     }
 
 
