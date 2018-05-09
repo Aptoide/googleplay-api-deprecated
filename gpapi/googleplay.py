@@ -53,14 +53,15 @@ class GooglePlayAPI(object):
                  locale=None, timezone=None,
                  sim_operator=None, cell_operator=None,
                  proxies_config=None,
-                 tor_control_port=9051,
-                 tor_control_password=''):
+                 tor_control_port=9051, tor_control_password=''):
 
         self.authSubToken = None
         self.gsfId = None
         self.debug = debug
         self.deviceBuilder = config.DeviceBuilder(device_codename)
         self.deviceBuilder.setLocale(locale)
+        self.locale = locale
+
         if timezone is not None:
             self.deviceBuilder.timezone = timezone
         if sim_operator is not None:
@@ -68,6 +69,7 @@ class GooglePlayAPI(object):
         if cell_operator is not None:
             self.deviceBuilder.device['celloperator'] = cell_operator
         # save last response text for error logging
+
         self.proxies = proxies_config
         self.tor_control_port = tor_control_port
         self.tor_control_password = tor_control_password
@@ -280,11 +282,8 @@ class GooglePlayAPI(object):
                                      headers=headers, verify=ssl_verify,
                                      timeout=60, proxies=self.proxies)
         else:
-            response = requests.get(url,
-                                    headers=headers,
-                                    verify=ssl_verify,
-                                    timeout=60,
-                                    proxies=self.proxies)
+            response = requests.get(url, headers=headers, verify=ssl_verify,
+                                    timeout=60, proxies=self.proxies)
 
         message = googleplay_pb2.ResponseWrapper.FromString(response.content)
         if message.commands.displayErrorMessage != "":
@@ -358,7 +357,8 @@ class GooglePlayAPI(object):
         """Get app details from a package name.
 
         packageName is the app unique ID (usually starting with 'com.')."""
-        path = "details?doc=%s" % requests.utils.quote(packageName)
+        path = "details?doc=%s&hl=%s" % (requests.utils.quote(packageName),
+                                         self.locale)
         data, _ = self.executeRequestApi2(path)
         return utils.fromDocToDictionary(data.payload.detailsResponse.docV2)
 
