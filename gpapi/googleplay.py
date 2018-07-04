@@ -318,7 +318,8 @@ class GooglePlayAPI(object):
         while remaining > 0 and nextPath is not None:
             currentPath = nextPath
             data, status_code = self.executeRequestApi2(currentPath)
-            if int(status_code) != 200:
+            if int(status_code) != 200 and self.tor_control_port \
+                    and self.tor_control_password:
                 self.renew_tor_ip()
                 data, status_code = self.executeRequestApi2(currentPath)
             if len(data.preFetch) > 0:
