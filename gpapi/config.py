@@ -2,7 +2,6 @@ from . import googleplay_pb2
 from time import time
 from os import path
 from sys import version_info
-from locale import getdefaultlocale
 from re import match
 
 VERSION = version_info[0]
@@ -37,75 +36,106 @@ def getDevicesCodenames():
 
 def getDevicesReadableNames():
     """Returns codename and readable name for each device"""
-    sections = getDevicesCodenames()
-    output = []
-    for s in sections:
-        output.append({'codename': s,
-                       'readableName': config[s]['userreadablename']})
-    return output
+    return [{'codename': s,
+             'readableName': config.get(s).get('userreadablename')}
+            for s in getDevicesCodenames()]
 
 
 class DeviceBuilder(object):
 
     def __init__(self, device):
         self.device = {}
-        self.timezone = "Europe/Berlin"
         for (key, value) in config.items(device):
             self.device[key] = value
 
-    def setLocale(self, locale):
+    def set_locale(self, locale):
         # test if provided locale is valid
         if locale is None or type(locale) is not str:
-            # try to fetch it from system
-            locale = getdefaultlocale()[0]
-            # getdefaultlocale may return None, we need another check
-            if locale is None:
-                locale = ''
+            raise Exception('Wrong locale supplied')
 
         # check if locale matches the structure of a common
         # value like "en_US"
         if match(r'[a-z]{2}\_[A-Z]{2}', locale) is None:
-            locale = 'en_US'
+            raise Exception('Wrong locale supplied')
         self.locale = locale
 
+    def set_timezone(self, timezone):
+        if timezone is None or type(timezone) is not str:
+            timezone = self.device.get('timezone')
+            if timezone is None:
+                raise Exception('Wrong timezone supplied')
+        self.timezone = timezone
+
+    def getBaseHeaders(self):
+        return {"Accept-Language": self.locale.replace('_', '-'),
+                "X-DFE-Encoded-Targets": DFE_TARGETS,
+                "User-Agent": self.getUserAgent(),
+                "X-DFE-Client-Id": "am-android-google",
+                "X-DFE-MCCMNC": self.device.get('celloperator'),
+                "X-DFE-Network-Type": "4",
+                "X-DFE-Content-Filters": "",
+                "X-DFE-Request-Params": "timeoutMs=4000"}
+
+    def getDeviceUploadHeaders(self):
+        headers = self.getBaseHeaders()
+        headers["X-DFE-Enabled-Experiments"] = "cl:billing.select_add_instrument_by_default"
+        headers["X-DFE-Unsupported-Experiments"] = ("nocache:billing.use_charging_poller,"
+            "market_emails,buyer_currency,prod_baseline,checkin.set_asset_paid_app_field,"
+            "shekel_test,content_ratings,buyer_currency_in_app,nocache:encrypted_apk,recent_changes")
+        headers["X-DFE-SmallestScreenWidthDp"] = "320"
+        headers["X-DFE-Filter-Level"] = "3"
+        return headers
+
+
     def getUserAgent(self):
-        return ("Android-Finsky/8.1.72.S-all [6] [PR] 165478484 ("
+        version_string = self.device.get('vending.versionstring')
+        if version_string is None:
+            version_string = '8.4.19.V-all [0] [FP] 175058788'
+        return ("Android-Finsky/{versionString} ("
                 "api=3"
                 ",versionCode={versionCode}"
                 ",sdk={sdk}"
                 ",device={device}"
                 ",hardware={hardware}"
                 ",product={product}"
-                "").format(versionCode=self.device['vending.version'],
-                           sdk=self.device['build.version.sdk_int'],
-                           device=self.device['build.device'],
-                           hardware=self.device['build.hardware'],
-                           product=self.device['build.product'])
+                ",platformVersionRelease={platform_v}"
+                ",model={model}"
+                ",buildId={build_id}"
+                ",isWideScreen=0"
+                ",supportedAbis={supported_abis}"
+                ")").format(versionString=version_string,
+                            versionCode=self.device.get('vending.version'),
+                            sdk=self.device.get('build.version.sdk_int'),
+                            device=self.device.get('build.device'),
+                            hardware=self.device.get('build.hardware'),
+                            product=self.device.get('build.product'),
+                            platform_v=self.device.get('build.version.release'),
+                            model=self.device.get('build.model'),
+                            build_id=self.device.get('build.id'),
+                            supported_abis=self.device.get('platforms').replace(',', ';'))
 
-    def getAuthParams(self, email, passwd):
-        return {"Email": email,
-                "EncryptedPasswd": passwd,
-                "accountType": ACCOUNT,
-                "has_permission": "1",
-                "source": "android",
-                "device_country": self.locale[0:2],
-                "service": "androidmarket",
-                "app": "com.android.vending",
-                "lang": self.locale,
-                "sdk_version": self.device['build.version.sdk_int']}
+    def getAuthHeaders(self, gsfid):
+        headers = {"User-Agent": ("GoogleAuth/1.4 ("
+                                  "{device} {id}"
+                                  ")").format(device=self.device.get('build.device'),
+                                              id=self.device.get('build.id'))}
+        if gsfid is not None:
+            headers['device'] = "{0:x}".format(gsfid)
+        return headers
 
-    def getLoginParams(self, email, encryptedPass):
+    def getLoginParams(self, email, encrypted_passwd):
         return {"Email": email,
-                "EncryptedPasswd": encryptedPass,
-                "service": "ac2dm",
+                "EncryptedPasswd": encrypted_passwd,
                 "add_account": "1",
                 "accountType": ACCOUNT,
+                "google_play_services_version": self.device.get('gsf.version'),
                 "has_permission": "1",
-                "app": "com.google.android.gsf",
                 "source": "android",
                 "device_country": self.locale[0:2],
                 "lang": self.locale,
-                "sdk_version": self.device['build.version.sdk_int']}
+                "sdk_version": self.device.get('build.version.sdk_int'),
+                "client_sig": "38918a453d07199354f8b19af05ec6562ced5788",
+                "callerSig": "38918a453d07199354f8b19af05ec6562ced5788"}
 
     def getAndroidCheckinRequest(self):
         request = googleplay_pb2.AndroidCheckinRequest()

@@ -9,7 +9,7 @@ ap.add_argument('-p', '--password', dest='password', help='google password')
 
 args = ap.parse_args()
 
-server = GooglePlayAPI(debug=True)
+server = GooglePlayAPI('it_IT', 'Europe/Rome')
 
 # LOGIN
 
@@ -19,12 +19,15 @@ gsfId = server.gsfId
 authSubToken = server.authSubToken
 
 print('\nNow trying secondary login with ac2dm token and gsfId saved\n')
-server = GooglePlayAPI(debug=True)
+server = GooglePlayAPI('it_IT', 'Europe/Rome')
 server.login(None, None, gsfId, authSubToken)
 
 # SEARCH
 
 apps = server.search('telegram', 34, None)
+
+print('\nSearch suggestion for "fir"\n')
+print(server.searchSuggest('fir'))
 
 print('nb_result: 34')
 print('number of results: %d' % len(apps))
@@ -33,13 +36,23 @@ print('\nFound those apps:\n')
 for a in apps:
     print(a['docId'])
 
+# HOME APPS
+
+print('\nFetching apps from play store home\n')
+home = server.getHomeApps()
+
+for cat in home:
+    print("cat {0} with {1} apps".format(cat.get('categoryId'),
+                                         str(len(cat.get('apps')))))
+
 # DOWNLOAD
 docid = apps[0]['docId']
 print('\nTelegram docid is: %s\n' % docid)
 print('\nAttempting to download %s\n' % docid)
-fl = server.download(docid, None, progress_bar=True)
-with open(docid + '.apk', 'wb') as f:
-    f.write(fl['data'])
+fl = server.download(docid)
+with open(docid + '.apk', 'wb') as apk_file:
+    for chunk in fl.get('file').get('data'):
+        apk_file.write(chunk)
     print('\nDownload successful\n')
 
 # DOWNLOAD APP NOT PURCHASED
@@ -52,10 +65,7 @@ try:
     app = server.search('nova launcher prime', 3, None)
     app = filter(lambda x: x['docId'] == 'com.teslacoilsw.launcher.prime', app)
     app = list(app)[0]
-    fl = server.delivery(app['docId'], app['versionCode'], progress_bar=True)
-    with open(docid + '.apk', 'wb') as f:
-        f.write(fl['data'])
-        print('\nDownload successful\n')
+    fl = server.delivery(app['docId'], app['versionCode'])
 except RequestError as e:
     errorThrown = True
     print(e)
@@ -66,8 +76,7 @@ if not errorThrown:
 
 
 # BULK DETAILS
-
-testApps = ['org.mozilla.firefox', 'com.non.existing.app']
+testApps = ['org.mozilla.focus', 'com.non.existing.app']
 bulk = server.bulkDetails(testApps)
 
 print('\nTesting behaviour for non-existing apps\n')

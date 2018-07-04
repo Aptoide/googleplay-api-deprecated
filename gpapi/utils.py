@@ -1,14 +1,15 @@
 import struct
 import sys
+from . import googleplay_pb2
 
 VERSION = sys.version_info[0]
-
 
 def fromDocToDictionary(app):
     return {
         "docId": app.docid,
-        "descriptionHtml": app.descriptionHtml,
         "title": app.title,
+        "descriptionHtml": app.descriptionHtml,
+        "recentChanges": app.details.appDetails.recentChangesHtml,
         "author": app.creator,
         "developer": {
             "name": app.details.appDetails.developerName,
@@ -19,7 +20,8 @@ def fromDocToDictionary(app):
                    "currencyCode": o.currencyCode,
                    "formattedAmount": o.formattedAmount,
                    "checkoutFlowRequired": o.checkoutFlowRequired,
-                   "offerType": o.offerType}
+                   "offerType": o.offerType,
+                   "saleEnds": o.saleEnds}
                   for o in app.offer],
         "images": [{"imageType": img.imageType,
                     "width": img.dimension.width
@@ -33,10 +35,10 @@ def fromDocToDictionary(app):
                    for img in app.image],
         "versionCode": app.details.appDetails.versionCode,
         "versionString": app.details.appDetails.versionString,
-        "majorVersionNumber": app.details.appDetails.majorVersionNumber,
         "installationSize": app.details.appDetails.installationSize,
         "numDownloads": app.details.appDetails.numDownloads,
         "uploadDate": app.details.appDetails.uploadDate,
+        "majorVersionNumber": app.details.appDetails.majorVersionNumber,
         "files": [{"fileType": f.fileType,
                    "version": f.versionCode,
                    "size": f.size}
@@ -81,3 +83,34 @@ def toBigInt(byteArray):
             decoded = struct.unpack("B", value)[0]
         out = out | decoded << key * 8
     return out
+
+def hasPrefetch(obj):
+    try:
+        return len(obj.preFetch) > 0
+    except ValueError:
+        return False
+
+def hasListResponse(obj):
+    try:
+        return obj.HasField('listResponse')
+    except ValueError:
+        return False
+
+def hasSearchResponse(obj):
+    try:
+        return obj.HasField('searchResponse')
+    except ValueError:
+        return False
+
+def hasDoc(obj):
+    # doc an be a single object or a
+    # RepeatedComposite object
+    try:
+        existance = obj.HasField('doc')
+    except ValueError:
+        try:
+            existance = len(obj.doc) > 0
+        except TypeError:
+            existance = False
+
+    return existance
