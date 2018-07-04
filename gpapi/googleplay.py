@@ -82,7 +82,7 @@ class GooglePlayAPI(object):
         self.tor_control_port = tor_control_port
         self.tor_control_password = tor_control_password
         self.deviceBuilder = config.DeviceBuilder(device_codename)
-        self.deviceBuilder.setLocale(locale)
+        self.deviceBuilder.set_locale(locale)
         self.locale = locale
 
         if timezone is not None:
@@ -366,7 +366,7 @@ class GooglePlayAPI(object):
             nextPath += "&o={}".format(offset)
         while remaining > 0 and nextPath is not None:
             currentPath = nextPath
-            data = self.executeRequestApi2(currentPath)
+            data, status_code = self.executeRequestApi2(currentPath)
             if int(status_code) != 200 and self.tor_control_port \
                     and self.tor_control_password:
                 self.renew_tor_ip()
