@@ -651,6 +651,68 @@ class GooglePlayAPI(object):
             return self.delivery(packageName, versionCode, offerType, dlToken,
                                  progress_bar=progress_bar, expansion_files=expansion_files)
 
+    def download_new(self, packageName, versionCode=None, offerType=1, expansion_files=False):
+        """Download an app and return its raw data (APK file). Free apps need
+        to be "purchased" first, in order to retrieve the download cookie.
+        If you want to download an already purchased app, use *delivery* method.
+
+        Args:
+            packageName (str): app unique ID (usually starting with 'com.')
+            versionCode (int): version to download
+            offerType (int): different type of downloads (mostly unused for apks)
+            downloadToken (str): download token returned by 'purchase' API
+            progress_bar (bool): wether or not to print a progress bar to stdout
+
+        Returns
+            Dictionary containing apk data and optional expansion files
+            (see *delivery*)
+        """
+
+        if self.authSubToken is None:
+            raise Exception("You need to login before executing any request")
+
+        if versionCode is None:
+            # pick up latest version
+            versionCode = self.details(packageName).get('versionCode')
+            print(versionCode)
+
+        headers = self.getHeaders()
+        response = requests.get(DELIVERY_URL, params={
+            'doc': packageName,
+            'ot': str(offerType),
+            'vc': versionCode,
+        }, headers=headers)
+        response = googleplay_pb2.ResponseWrapper.FromString(response.content)
+        if response.commands.displayErrorMessage != "":
+            raise RequestError(response.commands.displayErrorMessage)
+        elif response.payload.deliveryResponse.appDeliveryData.downloadUrl == "":
+            raise RequestError('App not purchased')
+        else:
+            result = {}
+            result['docId'] = packageName
+            result['additionalData'] = []
+            downloadUrl = response.payload.deliveryResponse.appDeliveryData.downloadUrl
+            cookie = response.payload.deliveryResponse.appDeliveryData.downloadAuthCookie[0]
+            cookies = {
+                str(cookie.name): str(cookie.value)
+            }
+            result['file'] = self._deliver_data(downloadUrl, cookies)
+            if not expansion_files:
+                return result
+            for obb in response.payload.deliveryResponse.appDeliveryData.additionalFile:
+                a = {}
+                # fileType == 0 -> main
+                # fileType == 1 -> patch
+                if obb.fileType == 0:
+                    obbType = 'main'
+                else:
+                    obbType = 'patch'
+                a['type'] = obbType
+                a['versionCode'] = obb.versionCode
+                a['file'] = self._deliver_data(obb.downloadUrl, None)
+                result['additionalData'].append(a)
+            return result
+
     @staticmethod
     def getDevicesCodenames():
         return config.getDevicesCodenames()
